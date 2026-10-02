@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alien Arcade</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #d7ffd4;
+  font-family: "Courier New", monospace;
+  background-color: #020307;
+  background-image: radial-gradient(circle at 15% 25%, #00ffff55 1px, transparent 2px),
+    radial-gradient(circle at 75% 60%, #ff36d855 1px, transparent 2px),
+    radial-gradient(ellipse at 50% 40%, #101431 0%, transparent 70%);
+  background-size: 113px 127px, 173px 191px, 100% 100%;
+}
+main {
+  width: min(100%, 800px);
+  padding: 22px;
+  background: #050910ee;
+  border: 2px solid #39ff14;
+  box-shadow: 6px 6px 0 #164514, 0 0 28px #39ff1426;
+}
+header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+h1 {
+  margin: 0;
+  color: #39ff14;
+  font-size: clamp(24px, 5vw, 36px);
+  letter-spacing: 3px;
+  text-shadow: 3px 3px 0 #126b10, 0 0 16px #39ff1455;
+}
+header p { color: #00ffff; font-size: 12px; line-height: 1.6; letter-spacing: 1px; text-align: right; }
+.stats { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 18px 0; font-weight: 700; font-size: 15px; }
+#level { color: #00ffff; }
+#kills { color: #39ff14; }
+#score { color: #ffe600; text-shadow: 0 0 10px #ffe60044; }
+#lives { color: #ff36d8; }
+.stage { position: relative; overflow: hidden; border: 2px solid #00ffff; box-shadow: 0 0 18px #00ffff22; }
+.stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0 3px, #00000022 3px 4px);
+  box-shadow: inset 0 0 45px #00000066;
+}
+canvas { display: block; width: 100%; background: #020410; aspect-ratio: 760 / 580; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #020410eb; padding: 24px; }
+.overlay[hidden] { display: none; }
+h2 { color: #ffe600; font-size: clamp(28px, 6vw, 46px); margin: 0 0 12px; text-shadow: 3px 3px 0 #864600; }
+.overlay p { line-height: 1.8; color: #d7ffd4; max-width: 440px; }
+button {
+  border: 2px solid #39ff14;
+  border-radius: 0;
+  background: #0c2010;
+  color: #39ff14;
+  padding: 13px 24px;
+  font: 700 16px "Courier New", monospace;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 #164514;
+}
+button:hover { color: #020307; background: #39ff14; }
+button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #164514; }
+button:focus-visible { outline: 3px solid #ffe600; outline-offset: 4px; }
+#start { border-color: #ff36d8; color: #ff36d8; background: #260c26; box-shadow: 4px 4px 0 #751563; text-transform: uppercase; letter-spacing: 2px; }
+#start:hover { background: #ff36d8; color: #020307; }
+button[aria-pressed="false"] { border-color: #7e8c96; color: #a8b4bc; background: #10151b; box-shadow: 3px 3px 0 #303943; }
+.help { color: #00ffff; text-align: center; font-size: 13px; line-height: 1.8; }
+.touch { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.touch button { padding: 10px 16px; touch-action: none; user-select: none; }
+.notice { position: absolute; top: 18%; width: 100%; text-align: center; font-size: 30px; font-weight: 800; color: #ffe600; text-shadow: 3px 3px 0 #864600; pointer-events: none; }
+@media (max-width: 520px) {
+  body { padding: 10px; }
+  main { padding: 12px; }
+  header { flex-direction: column; align-items: flex-start; gap: 4px; }
+  header p { margin: 4px 0; text-align: left; }
+  .stats { font-size: 13px; gap: 10px; }
+  .touch button { padding: 10px 12px; font-size: 14px; }
+  .overlay { padding: 16px; }
+  .overlay p { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<main>
+<header><h1>ALIEN ARCADE</h1><p>ONE PILOT. THREE LEVELS.</p></header>
+<div class="stats"><span id="level">Level 1 / 3</span><span id="kills">Aliens 0 / 10</span><span id="score">Score 0</span><span id="lives">Lives ♥ ♥ ♥</span></div>
+<div class="stage">
+<canvas id="game" width="760" height="580" aria-label="Spaceship game: use arrow keys to move and Space to shoot"></canvas>
+<div id="notice" class="notice" aria-live="polite"></div>
+<div id="overlay" class="overlay"><h2 id="title">Ready, pilot?</h2><p id="description">Shoot 10 aliens to clear each level.<br>Clear all 3 levels to win. Survive with 3 lives.<br>Use arrow keys to fly and hold Space to fire.</p><button id="start">Start game</button></div>
+</div>
+<p class="help">↑ ↓ ← → Move · Space Shoot · P Pause</p>
+<div class="touch" aria-label="Game controls"><button data-key="ArrowLeft" aria-label="Move left">←</button><button data-key="ArrowUp" aria-label="Move up">↑</button><button data-key="ArrowDown" aria-label="Move down">↓</button><button data-key="ArrowRight" aria-label="Move right">→</button><button data-key="Space">Fire</button><button id="pause">Pause</button><button id="sound" aria-pressed="true">Sound: on</button><button id="music" aria-pressed="true">Music: on</button></div>
+</main>
+<script>
+'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const ui=Object.fromEntries(['level','kills','score','lives','notice','overlay','title','description','start','pause'].map(id=>[id,document.getElementById(id)]));
+const W=canvas.width,H=canvas.height,keys=new Set(),colors=['#f58aff','#8df4ff','#ffce70','#88f3ad'];
+const stars=Array.from({length:85},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.7+.4}));
+let ship,aliens=[],shots=[],particles=[],level=1,kills=0,score=0,lives=3,state='ready',spawn=0,cooldown=0,invincible=0,banner=0,last=0;
+// Generate arcade sounds locally; no audio files or downloads needed.
+let audio=null,master=null,soundEnabled=true;
+const soundButton=document.getElementById('sound');
+function unlockAudio(){
+ try{
+  const AudioEngine=window.AudioContext||window.webkitAudioContext;
+  if(!AudioEngine)return;
+  if(!audio){audio=new AudioEngine();master=audio.createGain();master.gain.value=soundEnabled?.18:0;master.connect(audio.destination);}
+  if(audio.state==='suspended')audio.resume().catch(()=>{});
+ }catch(error){/* Keep the game playable when audio is unavailable. */}
+}
+function tone(frequency,endFrequency,duration,delay=0,type='square'){
+ if(!soundEnabled||!audio||audio.state!=='running')return;
+ const oscillator=audio.createOscillator(),volume=audio.createGain(),time=audio.currentTime+delay;
+ oscillator.type=type;oscillator.frequency.setValueAtTime(frequency,time);
+ oscillator.frequency.exponentialRampToValueAtTime(endFrequency,time+duration);
+ volume.gain.setValueAtTime(0,time);volume.gain.linearRampToValueAtTime(.5,time+.008);
+ volume.gain.exponentialRampToValueAtTime(.001,time+duration);
+ oscillator.connect(volume);volume.connect(master);
+ oscillator.onended=()=>{oscillator.disconnect();volume.disconnect();};
+ oscillator.start(time);oscillator.stop(time+duration+.01);
+}
+function sound(kind){
+ if(kind==='shoot')tone(900,180,.09);
+ if(kind==='hit')tone(260,55,.16,0,'sawtooth');
+ if(kind==='damage')tone(130,35,.3,0,'sawtooth');
+ if(kind==='level')[440,554,659].forEach((note,i)=>tone(note,note,.14,i*.14,'triangle'));
+ if(kind==='win')[523,659,784,1047].forEach((note,i)=>tone(note,note,.23,i*.18,'triangle'));
+ if(kind==='lose')[220,165,110,55].forEach((note,i)=>tone(note,note,.25,i*.2,'triangle'));
+}
+soundButton.addEventListener('click',()=>{
+ soundEnabled=!soundEnabled;unlockAudio();
+ if(master)master.gain.setValueAtTime(soundEnabled?.18:0,audio.currentTime);
+ soundButton.textContent=soundEnabled?'Sound: on':'Sound: off';
+ soundButton.setAttribute('aria-pressed',String(soundEnabled));
+ updateMusic();
+});
+window.addEventListener('pointerdown',unlockAudio);
+window.addEventListener('keydown',unlockAudio);
+// Original 8-bit loop: square-wave melody, triangle bass, and ticking percussion.
+let musicEnabled=true,musicBus=null,musicStep=0,nextMusicTime=0,musicPlaying=false;
+const musicVoices=new Set(),musicButton=document.getElementById('music');
+const melody=[76,0,79,83,81,79,76,74,72,0,76,79,78,76,74,71,
+              69,0,72,76,74,72,69,67,71,74,78,81,79,78,74,71];
+const bass=[40,36,33,35];
+function stopMusic(reset=false){
+ for(const voice of musicVoices){try{voice.stop();}catch(error){}}
+ musicVoices.clear();musicPlaying=false;
+ if(reset)musicStep=0;
+}
+function musicNote(note,time,duration,type,loudness,endNote=note){
+ const oscillator=audio.createOscillator(),gain=audio.createGain();
+ const frequency=n=>440*Math.pow(2,(n-69)/12);
+ oscillator.type=type;oscillator.frequency.setValueAtTime(frequency(note),time);
+ oscillator.frequency.exponentialRampToValueAtTime(frequency(endNote),time+duration);
+ gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(loudness,time+.005);
+ gain.gain.exponentialRampToValueAtTime(.001,time+duration);
+ oscillator.connect(gain);gain.connect(musicBus);musicVoices.add(oscillator);
+ oscillator.onended=()=>{musicVoices.delete(oscillator);oscillator.disconnect();gain.disconnect();};
+ oscillator.start(time);oscillator.stop(time+duration+.01);
+}
+function updateMusic(){
+ if(state!=='playing'||!musicEnabled||!soundEnabled||!audio||audio.state!=='running'){
+  if(musicPlaying)stopMusic();return;
+ }
+ if(!musicBus){musicBus=audio.createGain();musicBus.gain.value=.55;musicBus.connect(master);}
+ if(!musicPlaying){nextMusicTime=audio.currentTime+.025;musicPlaying=true;}
+ // Schedule a little ahead using the audio clock to keep the beat steady.
+ if(nextMusicTime<audio.currentTime)nextMusicTime=audio.currentTime+.025;
+ const stepDuration=60/132/2;
+ while(nextMusicTime<audio.currentTime+.12){
+  const step=musicStep%melody.length,note=melody[step];
+  if(note)musicNote(note,nextMusicTime,stepDuration*.72,'square',.17);
+  if(step%2===0)musicNote(bass[Math.floor(step/8)],nextMusicTime,stepDuration*1.6,'triangle',.32);
+  musicNote(step%4===0?45:100,nextMusicTime,step%4===0?.09:.025,'triangle',.13,step%4===0?24:75);
+  musicStep=(musicStep+1)%melody.length;nextMusicTime+=stepDuration;
+ }
+}
+musicButton.addEventListener('click',()=>{
+ musicEnabled=!musicEnabled;unlockAudio();
+ musicButton.textContent=musicEnabled?'Music: on':'Music: off';
+ musicButton.setAttribute('aria-pressed',String(musicEnabled));
+ updateMusic();
+});
+function updateUI(){ui.level.textContent=`Level ${level} / 3`;ui.kills.textContent=`Aliens ${kills} / 10`;ui.score.textContent=`Score ${score}`;ui.lives.textContent='Lives '+('♥ '.repeat(lives).trim()||'0');}
+function start(){stopMusic(true);unlockAudio();ship={x:W/2,y:H-65,r:19};aliens=[];shots=[];particles=[];level=1;kills=0;score=0;lives=3;spawn=.5;cooldown=0;invincible=0;banner=0;keys.clear();state='playing';ui.overlay.hidden=true;ui.notice.textContent='';ui.pause.textContent='Pause';updateUI();}
+function finish(won){stopMusic(true);sound(won?'win':'lose');state='ended';keys.clear();ui.title.textContent=won?'Galaxy saved!':'Ship down!';ui.description.textContent=won?'You cleared all 3 levels and defeated 30 aliens. Excellent flying!':`You reached level ${level}. Your ship collided with 3 aliens. Try another flight!`;ui.start.textContent='Play again';ui.overlay.hidden=false;ui.notice.textContent='';}
+function pause(){if(state==='playing'){state='paused';stopMusic();keys.clear();ui.notice.textContent='PAUSED';ui.pause.textContent='Resume';}else if(state==='paused'){state='playing';ui.notice.textContent=banner>0?`LEVEL ${level}`:'';ui.pause.textContent='Pause';}}
+ui.start.addEventListener('click',start);ui.pause.addEventListener('click',pause);
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}if(e.code==='KeyP'&&!e.repeat)pause();});
+window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();if(state==='playing')pause();});
+document.querySelectorAll('[data-key]').forEach(button=>{button.addEventListener('pointerdown',e=>{e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));});
+function burst(x,y,color){for(let i=0;i<16;i++){const angle=Math.random()*Math.PI*2,speed=40+Math.random()*150;particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:.6,color});}}
+function tick(dt){
+ if(state!=='playing')return;
+ invincible=Math.max(0,invincible-dt);cooldown-=dt;banner=Math.max(0,banner-dt);if(!banner)ui.notice.textContent='';
+ let dx=Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),dy=Number(keys.has('ArrowDown'))-Number(keys.has('ArrowUp'));const length=Math.hypot(dx,dy)||1;
+ ship.x=Math.max(22,Math.min(W-22,ship.x+dx/length*300*dt));ship.y=Math.max(25,Math.min(H-25,ship.y+dy/length*300*dt));
+ if(keys.has('Space')&&cooldown<=0){shots.push({x:ship.x,y:ship.y-24});cooldown=.17;sound('shoot');}
+ spawn-=dt;if(spawn<=0){aliens.push({x:30+Math.random()*(W-60),y:-30,r:22,speed:35+level*15+Math.random()*18,color:colors[Math.floor(Math.random()*colors.length)],phase:Math.random()*6.28});spawn=Math.max(.4,1.05-level*.16);}
+ for(const shot of shots)shot.y-=510*dt;
+ for(const alien of aliens){alien.y+=alien.speed*dt;alien.phase+=dt*2;}
+ for(const shot of shots){for(const alien of aliens){if(!alien.dead&&Math.hypot(shot.x-alien.x,shot.y-alien.y)<alien.r+5){alien.dead=true;shot.y=-100;kills++;score+=100;sound('hit');burst(alien.x,alien.y,alien.color);updateUI();break;}}if(kills>=10)break;}
+ if(kills>=10){if(level===3){finish(true);return;}level++;sound('level');kills=0;aliens=[];shots=[];spawn=1.5;invincible=1.5;banner=1.5;ui.notice.textContent=`LEVEL ${level}`;updateUI();}
+ for(const alien of aliens){if(!alien.dead&&invincible<=0&&Math.hypot(ship.x-alien.x,ship.y-alien.y)<ship.r+alien.r-5){alien.dead=true;lives--;if(lives>0)sound('damage');invincible=1.3;burst(ship.x,ship.y,'#8df4ff');updateUI();if(lives===0){finish(false);return;}}}
+ aliens=aliens.filter(a=>!a.dead&&a.y<H+35);shots=shots.filter(s=>s.y>-20);
+ for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;}particles=particles.filter(p=>p.life>0);
+ for(const star of stars){star.y+=dt*(12+star.r*10);if(star.y>H)star.y=0;}
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);for(const s of stars){ctx.fillStyle='#9dafda';ctx.globalAlpha=s.r/2.5;ctx.fillRect(s.x,s.y,s.r,s.r);}ctx.globalAlpha=1;
+ ctx.fillStyle='#8df4ff';ctx.shadowColor='#8df4ff';ctx.shadowBlur=12;for(const s of shots)ctx.fillRect(s.x-2,s.y-12,4,18);ctx.shadowBlur=0;
+ for(const a of aliens){ctx.save();ctx.translate(a.x,a.y);ctx.rotate(Math.sin(a.phase)*.12);ctx.fillStyle=a.color;ctx.beginPath();ctx.ellipse(0,0,22,17,0,0,Math.PI*2);ctx.fill();ctx.fillRect(-18,10,7,10);ctx.fillRect(11,10,7,10);ctx.strokeStyle=a.color;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-11,-12);ctx.lineTo(-17,-23);ctx.moveTo(11,-12);ctx.lineTo(17,-23);ctx.stroke();ctx.fillStyle='#10162e';ctx.fillRect(-12,-4,7,8);ctx.fillRect(5,-4,7,8);ctx.restore();}
+ if(ship&&!(invincible>0&&Math.floor(invincible*12)%2)){ctx.save();ctx.translate(ship.x,ship.y);ctx.fillStyle='#ffce70';ctx.beginPath();ctx.moveTo(-7,18);ctx.lineTo(0,30+Math.random()*10);ctx.lineTo(7,18);ctx.fill();ctx.fillStyle='#8df4ff';ctx.beginPath();ctx.moveTo(0,-25);ctx.lineTo(21,20);ctx.lineTo(0,12);ctx.lineTo(-21,20);ctx.closePath();ctx.fill();ctx.fillStyle='#243c79';ctx.beginPath();ctx.ellipse(0,0,5,10,0,0,Math.PI*2);ctx.fill();ctx.restore();}
+ for(const p of particles){ctx.globalAlpha=p.life/.6;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4);}ctx.globalAlpha=1;
+}
+function frame(time){const dt=Math.min((time-last)/1000,.04);last=time;tick(dt);updateMusic();draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
+</script>
+</body>
+</html>
